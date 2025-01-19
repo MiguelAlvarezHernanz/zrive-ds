@@ -15,7 +15,11 @@ MOCK_RESPONSE = {
 
 
 def test_api_call_success():
-    params = {"latitude": 40.416775, "longitude": -3.703790, "daily": "temperature_2m_mean"}
+    params = {
+        "latitude": 40.416775,
+        "longitude": -3.703790,
+        "daily": "temperature_2m_mean",
+    }
     with patch("meteo_api.requests.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = MOCK_RESPONSE
@@ -25,7 +29,11 @@ def test_api_call_success():
 
 
 def test_api_call_rate_limit():
-    params = {"latitude": 40.416775, "longitude": -3.703790, "daily": "temperature_2m_mean"}
+    params = {
+        "latitude": 40.416775,
+        "longitude": -3.703790,
+        "daily": "temperature_2m_mean",
+    }
     with patch("meteo_api.requests.get") as mock_get:
         mock_get.return_value.status_code = 429
         mock_get.return_value.headers = {"Retry-After": "1"}
@@ -43,12 +51,14 @@ def test_get_data_meteo_api():
 
 
 def test_process_data():
-    data = pd.DataFrame({
-        "time": ["2020-01-01", "2020-01-02"],
-        "temperature_2m_mean": [5, 6],
-        "precipitation_sum": [0.1, 0.2],
-        "wind_speed_10m_max": [3, 4],
-    })
+    data = pd.DataFrame(
+        {
+            "time": ["2020-01-01", "2020-01-02"],
+            "temperature_2m_mean": [5, 6],
+            "precipitation_sum": [0.1, 0.2],
+            "wind_speed_10m_max": [3, 4],
+        }
+    )
     df = process_data(data)
     assert isinstance(df, pd.DataFrame)
     assert df.index.freq == "M"  # Comprueba que la frecuencia es mensual
