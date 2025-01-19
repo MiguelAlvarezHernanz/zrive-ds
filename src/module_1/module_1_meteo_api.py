@@ -2,7 +2,10 @@ import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 import time
-from module_1_extra_fun import plot_comparative_temperature, plot_comparative_precipitation
+from src.module_1.module_1_extra_fun import (
+    plot_comparative_temperature,
+    plot_comparative_precipitation,
+)
 
 API_URL = "https://archive-api.open-meteo.com/v1/archive?"
 COORDINATES = {
@@ -20,7 +23,7 @@ def api_call(url, params, retries=3):
             return response.json()
         elif response.status_code == 429:
             print("Rate limit reached. Retrying...")
-            time.sleep(2 ** attempt)
+            time.sleep(2**attempt)
         else:
             response.raise_for_status()
     raise RuntimeError("API request failed after retries")
@@ -38,7 +41,9 @@ def get_data_meteo_api(city, start_year=2010, end_year=2020):
         "timezone": "auto",
     }
     response = api_call(API_URL, params)
-    if "daily" not in response or not all(var in response["daily"] for var in VARIABLES):
+    if "daily" not in response or not all(
+        var in response["daily"] for var in VARIABLES
+    ):
         raise ValueError("API response schema is invalid or incomplete")
     return pd.DataFrame(response["daily"])
 
@@ -47,14 +52,14 @@ def process_data(df):
     # Resample monthly
     df["time"] = pd.to_datetime(df["time"])
     df.set_index("time", inplace=True)
-    return df.resample("ME").mean()  
+    return df.resample("ME").mean()
 
 
 def plot_data(data, city):
     legend = ["Temperature: °C", "Precipitation: mm", "Wind speed: m/s"]
 
     plt.figure(figsize=(12, 8))
-    for i,var in enumerate(VARIABLES):
+    for i, var in enumerate(VARIABLES):
         plt.plot(data.index, data[var], label=legend[i])
     plt.title(f"Climatic Variables in {city}")
     plt.xlabel("Time")
@@ -74,9 +79,9 @@ def main():
         processed_data = process_data(raw_data)
         results[city] = processed_data
         plot_data(processed_data, city)
-    
-#    plot_comparative_temperature(results_raw)
-#    plot_comparative_precipitation(results_raw)
+
+    plot_comparative_temperature(results_raw)
+    plot_comparative_precipitation(results_raw)
 
 
 if __name__ == "__main__":
