@@ -1,7 +1,37 @@
+import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, precision_recall_curve, auc
 from sklearn.model_selection import train_test_split
 import pandas as pd
+
+def preprocess_data(df, time_columns=['created_at', 'order_date'], freq_encode_cols=['product_type', 'vendor']):
+    """
+    Processes time-related features and applies frequency encoding to categorical variables.
+
+    Parameters:
+    - df (pd.DataFrame): The dataset containing time and categorical columns.
+    - time_columns (list): List of columns containing time-related data.
+    - freq_encode_cols (list): List of categorical columns to apply frequency encoding.
+
+    Returns:
+    - df_processed (pd.DataFrame): The transformed dataset.
+    """
+    df_processed = df.copy()  # Work on a copy to avoid modifying original data
+
+    # Handle time-related features
+    df_processed['hour'] = pd.to_datetime(df_processed[time_columns[0]]).dt.hour
+    df_processed['day_of_week'] = pd.to_datetime(df_processed[time_columns[1]]).dt.dayofweek
+    
+    # Drop original time columns
+    df_processed = df_processed.drop(columns=time_columns)
+
+    # Apply Frequency Encoding for categorical variables
+    for col in freq_encode_cols:
+        freq_map = df_processed[col].value_counts(normalize=True)  # Compute frequency
+        df_processed[col] = df_processed[col].map(freq_map)
+
+    return df_processed
+
 
 def sequential_train_test_split(df, test_size=0.15, random_state=42):
     """
@@ -21,6 +51,47 @@ def sequential_train_test_split(df, test_size=0.15, random_state=42):
     df_test = df[df['user_id'].isin(test_users)]
 
     return df_train, df_test
+
+
+def time_based_split(df, date_column='order_date', train_size=0.7, val_size=0.2, test_size=0.1):
+    """
+    Performs a time-wise split of the dataset based on chronological order.
+
+    Parameters:
+    - df (pd.DataFrame): The dataset containing a datetime column and an 'outcome' column.
+    - date_column (str): The name of the column with datetime values.
+    - train_size (float): Proportion of data for training (default = 70%).  |
+    - val_size (float): Proportion of data for validation (default = 20%).  |> Those three must sum to 1.
+    - test_size (float): Proportion of data for testing (default = 10%).    |
+
+    Returns:
+    - X_train, X_val, X_test, y_train, y_val, y_test
+    """
+
+    df[date_column] = pd.to_datetime(df[date_column])
+    df = df.sort_values(by=date_column)
+
+    # Compute split indices
+    train_idx = int(len(df) * train_size)
+    val_idx = train_idx + int(len(df) * val_size)
+
+    # Split dataset
+    train_df = df.iloc[:train_idx]
+    val_df = df.iloc[train_idx:val_idx]
+    test_df = df.iloc[val_idx:]
+
+    # Preprocess dfs
+    train_df = preprocess_data(train_df)
+    val_df = preprocess_data(val_df)
+    test_df = preprocess_data(test_df)
+
+    # Define X (features) and y (target)
+    X_train, y_train = train_df.drop(columns=['outcome']), train_df['outcome']
+    X_val, y_val = val_df.drop(columns=['outcome']), val_df['outcome']
+    X_test, y_test = test_df.drop(columns=['outcome']), test_df['outcome']
+
+    return X_train, X_val, X_test, y_train, y_val, y_test
+
 
 def plot_roc_pr_curves(models, X_val, y_val, model_names=None):
     """
@@ -115,3 +186,30 @@ def compute_last_month_sales(df, variant_id):
     sales_count = last_month_df[(last_month_df['variant_id'] == variant_id) & (last_month_df['outcome'] == 1)].shape[0]
 
     return sales_count
+
+def find_threshold_for_precision(model, X_val, y_val, target_precision):
+    """
+    Finds the decision threshold for RidgeClassifier that results in a given precision.
+
+    Parameters:
+    - model: Trained RidgeClassifier model.
+    - X_val: Validation set features.
+    - y_val: True labels.
+    - target_precision: The precision level we want to achieve.
+
+    Returns:
+    - optimal_threshold: The threshold value that leads to the target precision.
+    """
+    # Get decision scores instead of probabilities
+    decision_scores = model.decision_function(X_val)
+
+    # Compute precision-recall pairs for different thresholds
+    precisions, recalls, thresholds = precision_recall_curve(y_val, decision_scores)
+
+    # Find the closest precision to the target
+    threshold_index = np.argmin(np.abs(precisions - target_precision))
+
+    # Get the corresponding threshold
+    optimal_threshold = thresholds[threshold_index]
+
+    return optimal_threshold
