@@ -19,6 +19,7 @@ scikit-learn = "^1.4.1.post1"
 boto3 = "^1.36.6"
 pyarrow = "^19.0.0"
 nbconvert = "^7.16.6"
+joblib = "^1.4.2"
 
 
 [tool.poetry.group.dev.dependencies]

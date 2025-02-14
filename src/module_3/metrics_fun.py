@@ -1,3 +1,6 @@
+import os
+import datetime
+import joblib
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, precision_recall_curve, auc
@@ -86,14 +89,14 @@ def time_based_split(df, date_column='order_date', train_size=0.7, val_size=0.2,
     test_df = preprocess_data(test_df)
 
     # Define X (features) and y (target)
-    X_train, y_train = train_df.drop(columns=['outcome']), train_df['outcome']
-    X_val, y_val = val_df.drop(columns=['outcome']), val_df['outcome']
-    X_test, y_test = test_df.drop(columns=['outcome']), test_df['outcome']
+    X_train, y_train = train_df.drop(columns=['outcome', 'variant_id', 'user_id', 'order_id']), train_df['outcome']
+    X_val, y_val = val_df.drop(columns=['outcome', 'variant_id', 'user_id', 'order_id']), val_df['outcome']
+    X_test, y_test = test_df.drop(columns=['outcome', 'variant_id', 'user_id', 'order_id']), test_df['outcome']
 
     return X_train, X_val, X_test, y_train, y_val, y_test
 
 
-def plot_roc_pr_curves(models, X_val, y_val, model_names=None):
+'''def plot_roc_pr_curves(models, X_val, y_val, model_names=None):
     """
     Plots the ROC Curve and Precision-Recall Curve for one or multiple models.
     
@@ -125,6 +128,82 @@ def plot_roc_pr_curves(models, X_val, y_val, model_names=None):
         # Try using predict_proba, otherwise use decision_function
         if hasattr(model, "predict_proba"):
             y_scores = model.predict_proba(X_val)[:, 1] 
+        elif hasattr(model, "decision_function"):
+            y_scores = model.decision_function(X_val)
+        else:
+            raise AttributeError(f"Model {name} must have `predict_proba` or `decision_function`")
+
+        # Compute ROC curve and AUC
+        fpr, tpr, _ = roc_curve(y_val, y_scores)
+        roc_auc = auc(fpr, tpr)
+
+        # Compute Precision-Recall curve and AUC
+        precision, recall, _ = precision_recall_curve(y_val, y_scores)
+        pr_auc = auc(recall, precision)
+
+        # Plot ROC Curve
+        axes[0].plot(fpr, tpr, label=f'{name} (AUC = {roc_auc:.2f})')
+
+        # Plot Precision-Recall Curve
+        axes[1].plot(recall, precision, label=f'{name} (AUC = {pr_auc:.2f})')
+
+    # Format ROC plot
+    axes[0].plot([0, 1], [0, 1], linestyle='--', color='gray')  # Diagonal line
+    axes[0].set_xlabel("False Positive Rate")
+    axes[0].set_ylabel("True Positive Rate")
+    axes[0].set_title("Receiver Operating Characteristic (ROC) Curve")
+    axes[0].legend()
+
+    # Format Precision-Recall plot
+    axes[1].set_xlabel("Recall")
+    axes[1].set_ylabel("Precision")
+    axes[1].set_title("Precision-Recall Curve")
+    axes[1].legend()
+
+    plt.tight_layout()
+    plt.show()''' # Outdated version of function
+
+
+def plot_roc_pr_curves(models, X_vals, y_val, model_names=None):
+    """
+    Plots the ROC Curve and Precision-Recall Curve for one or multiple models.
+    
+    Works with models that have either `predict_proba()` (e.g., LogisticRegression)
+    or `decision_function()` (e.g., RidgeClassifier, SVM).
+
+    Parameters:
+    - models: A single model or a list of trained classifiers.
+    - X_vals: A single validation feature set or a list of feature sets (one per model).
+    - y_val: True labels for validation data.
+    - model_names: Optional list of model names (must match the length of `models`).
+
+    Returns:
+    - None (Displays the plots).
+    """
+    # Ensure models is a list
+    if not isinstance(models, list):
+        models = [models]
+    if not isinstance(X_vals, list):
+        X_vals = [X_vals]
+
+    if len(X_vals) == 1:
+        X_vals = [X_vals[0].copy() for _ in range(len(models))]
+
+    # Ensure the number of models matches the number of feature sets
+    assert len(models) == len(X_vals), "Number of models must match the number of feature sets provided."
+
+    # Assign default names if none are provided
+    if model_names is None:
+        model_names = [f"Model {i+1}" for i in range(len(models))]
+
+    # Create plots
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+    # Iterate over models and their respective feature sets
+    for model, X_val, name in zip(models, X_vals, model_names):
+        # Try using predict_proba, otherwise use decision_function
+        if hasattr(model, "predict_proba"):
+            y_scores = model.predict_proba(X_val)[:, 1]
         elif hasattr(model, "decision_function"):
             y_scores = model.decision_function(X_val)
         else:
@@ -213,3 +292,12 @@ def find_threshold_for_precision(model, X_val, y_val, target_precision):
     optimal_threshold = thresholds[threshold_index]
 
     return optimal_threshold
+
+
+def save_model(model, model_name: str, output_path='models'):
+    os.chdir('/home/miguel/zrive-ds')
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+    
+    model_name = f"{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}_{model_name}.pkl"
+    joblib.dump(model, os.path.join(output_path, model_name))

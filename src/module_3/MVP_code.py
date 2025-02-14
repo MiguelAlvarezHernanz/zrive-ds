@@ -42,7 +42,7 @@ decision_scores = model.decision_function(X_test)
 y_predicted = (decision_scores >= optimal_threshold).astype(int)
 
 # Results (sent to the sales/marketing teams)
-users_to_be_notified = X_test.loc[y_predicted == 1, 'user_id'].unique()
+users_to_be_notified = df.loc[X_test.index, 'user_id'][y_predicted == 1].unique()
 print(f'Final number of notifications sent: {len(users_to_be_notified)}')
 
 # Evaluation
@@ -52,3 +52,15 @@ print(f"Custom Threshold: {optimal_threshold:.3f}")
 print("\nClassification Report for Validation Data:\n", classification_report(y_val, y_predicted_val))
 
 print("\nClassification Report for Test Data:\n", classification_report(y_test, y_predicted))
+
+# plot_roc_pr_curves(model, X_val, y_val)
+
+# Save model for later use
+save_model(model, model_name='Linear Model', output_path='models/module_3')
+
+'''
+Aquí intenté enfrentar un poco más directamente el problema de negocio que nos presentaban y creo que me acabé
+liando un poco de más al intentar forzar un número de push notifications enviadas, porque evidentemente no podemos
+forzar el modelo a predecir un número dado de positivos si no disponemos de casos que los respalden. Me gustaría
+recibir feedback antes de eliminarlo/solucionarlo.
+'''
